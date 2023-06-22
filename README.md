@@ -1,2 +1,2 @@
 Tic-Tac-Toe
-Ren G. coding
+By Ren G. Coding
