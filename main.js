@@ -26,8 +26,15 @@ const winningConditions = [
 ];
 
 const form = document.querySelector("#myForm");
+const newGameBtn = document.querySelector("#restartBtn");
 
-form.addEventListener('submit', (event) => {
+const resetGameBtn = document.querySelector("#resetBtn");
+
+newGameBtn.addEventListener("click", () => {
+    location.reload();
+});
+
+form.addEventListener("submit", (event) => {
     //prevent page refresh
     event.preventDefault();
 
@@ -48,11 +55,23 @@ const initializeVariables = (data) => {
     data.gameOver = false;
 };
 
+const resetDom = () => {
+    document.querySelectorAll('.box').forEach((box) => {
+        box.className = "box";
+        box.textContent = "";
+    });
+};
+
 const addEventListenersToGameBoard = (data) => {
     document.querySelectorAll('.box').forEach((box) => {
         box.addEventListener('click', (event) => {
             playMove(event.target, data);
         });
+    });
+    resetGameBtn.addEventListener("click", () => {
+        initializeVariables(data);
+        resetDom();
+        adjustDom("displayTurn", `${data.player1Name}'s turn`);
     });
 };
 
@@ -63,6 +82,7 @@ const initializeGame = (data) => {
     initializeVariables(data);
 
     addEventListenersToGameBoard(data);
+    
 };
 
 const playMove = (box, data) => {
@@ -90,7 +110,22 @@ const playMove = (box, data) => {
 
     //change current player
     //change the DOM, and change data.currentplayer
-    changePlayer(data);
+    if (data.choice === 0) {
+        changePlayer(data);
+    } else if (data.choice === 1) {
+        //easy AI
+        easyAiMove(data);
+        data.currentPlayer = "X";
+
+        //change back to player1
+    } else if (data.choice === 2) {
+        changePlayer(data);
+        impossibleAiMove(data);
+        if (endConditions(data)) {
+            return;
+        }
+        changePlayer(data);
+    }
 };
 
 const endConditions = (data) => {
@@ -98,7 +133,7 @@ const endConditions = (data) => {
     //winner
     //tie
     //game not yet over
-    if(checkWinner(data)) {
+    if(checkWinner(data, data.currentPlayer)) {
         //adjust the DOM to reflect win
         let winnerName = 
          data.currentPlayer === "X" ? data.player1Name : data.player2Name;
@@ -113,14 +148,14 @@ const endConditions = (data) => {
     return false;
 };
 
-const checkWinner = (data) => {
+const checkWinner = (data, player) => {
     let result = false;
-    winningConditions.forEach(condition => {
-        if(
-            data.board[condition[0]] === data.board[condition[1]] && 
-            data.board[condition[1]] === data.board[condition[2]]
-            ) {
-            data.gameOver = true;
+    winningConditions.forEach((condition) => {
+        if (
+            data.board[condition[0]] === player && 
+            data.board[condition[1]] === player && 
+            data.board[condition[2]] === player
+        )   {
             result = true;
         }
     });
@@ -138,4 +173,99 @@ const changePlayer = (data) => {
     let displayTurnText =
      data.currentPlayer === "X" ? data.player1Name : data.player2Name;
     adjustDom("displayTurn", `${displayTurnText}'s turn`);
+};
+
+const easyAiMove = (data) => {
+    changePlayer(data);
+    data.round++;
+    let availableSpaces = data.board.filter(
+        (space) => space !== "X" && space !=="O"
+        );
+        let move =
+         availableSpaces[Math.floor(Math.random() * availableSpaces.length)];
+        data.board[move] = data.player2;
+        setTimeout(() => {
+        let box = document.getElementById(`${move}`);
+        box.textContent = data.player2;
+        box.classList.add("player2");
+    }, 200);
+
+        if (endConditions(data)) {
+            return;
+        }
+
+        changePlayer(data);
+};
+
+const impossibleAiMove = (data) => {
+    data.round++;
+    //get best possible move from minimax algorithm
+    const move = minimax(data,"O").index;
+    data.board[move] = data.player2;
+    let box = document.getElementById(`${move}`);
+    box.textContent = data.player2;
+    box.classList.add("player2");
+
+    if(checkWinner(data, data.player2)) {
+
+    }
+
+    console.log(data);
+};
+
+const minimax = (data, player) => {
+    let availableSpaces = data.board.filter(
+        (space) => space !== "X" && space !== "O"
+        );
+    if(checkWinner(data, data.player1)) {
+        return {
+            score: -100,
+        };
+    } else if(checkWinner(data, data.player2)) {
+        return {
+            score: 100,
+        };
+    } else if(availableSpaces.length === 0) {
+        return {
+            score: 0,
+        };
+    }
+        //check if winner, if player1 wins set score to -100
+        //if tie, set score to 0
+        //if win set score to 100
+        const potentialMoves = [];
+        //loop over available spaces to get list of all potential moves and check if wins
+        for(let i = 0; i < availableSpaces.length; i++) {
+            let move = {}
+            move.index = data.board[availableSpaces[i]];
+            data.board[availableSpaces[i]] = player;
+            if(player === data.player2) {
+                move.score = minimax(data, data.player1).score;
+            } else {
+                move.score = minimax(data, data.player2).score;
+            }
+            //set the move to the board
+            data.board[availableSpaces[i]] = move.index;
+            //push the potential move to the array
+            potentialMoves.push(move);
+        }
+        let bestMove = 0;
+        if(player === data.player2) {
+            let bestScore = -10000;
+            for(let i = 0; i < potentialMoves.length; i++) {
+                if(potentialMoves[i].score > bestScore) {
+                    bestScore = potentialMoves[i].score;
+                    bestMove = i;
+                }
+            }
+        } else {
+            let bestScore = 10000;
+            for(let i = 0; i < potentialMoves.length; i++) {
+                if(potentialMoves[i].score < bestScore) {
+                    bestScore = potentialMoves[i].score;
+                    bestMove = i;
+                }
+            }
+        }
+        return potentialMoves[bestMove];
 };
